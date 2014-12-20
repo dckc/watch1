@@ -1,5 +1,5 @@
 /**
- * app.js for watch1 -- show geo position
+ * app.js for watch1 -- Home for Dinner
  * by Dan Connolly
  */
 
@@ -21,11 +21,12 @@ function main(world) {
 
   function hereIAm(pos) {
     var here = '' + pos.coords.latitude + ',' + pos.coords.longitude;
-    
-    say('Getting ETA from ' + here + ' to ' + world.home);
+    var there = world.destination();
+
+    say('Getting ETA from ' + here + ' to ' + there);
     
     world.getDirections(
-      here, world.home,
+      here, there,
       function(results) {
         console.log(results.status);
         if(results.status == 'OK') {
@@ -65,7 +66,7 @@ function fmtQ(params) {
   return q;
 }
 
-function mkGetDirections(ajax, api_key) {
+function mkGetDirections(ajax, get_api_key) {
   // https://developers.google.com/maps/documentation/directions/#DirectionsRequests
   var maps_addr = 'https://maps.googleapis.com/maps/api/directions/json';
   
@@ -73,7 +74,7 @@ function mkGetDirections(ajax, api_key) {
     var q = maps_addr + fmtQ({
       origin: origin,
       destination: destination,
-      key: api_key
+      key: get_api_key()
     });
 
     console.log('q = ' + q);
@@ -85,15 +86,32 @@ function mkGetDirections(ajax, api_key) {
   // http://developer.getpebble.com/getting-started/pebble-js-tutorial/part2/
   var ajax = require('ajax');
   var UI = require('ui');
-  var eta_home = 'API_KEY_HERE';
+  var Settings = require('settings');
+
+  Settings.config(
+    { url: 'http://www.madmode.com/2014/eta_config.html' },
+    function(e) {
+      console.log('opening configurable');
+    },
+    function(e) {
+      console.log('closed configurable');
+      if (e.response.charAt(0) == "{" && e.response.slice(-1) == "}" && e.response.length > 5) {
+        var options = JSON.parse(decodeURIComponent(e.response));
+        console.log("Options = " + JSON.stringify(options));
+      } else {
+        console.log("Cancelled");
+      }
+    }
+  );
 
   main({
-    home: '...',
+    destination: function () { return Settings.option("addr") || "?"; },
     clock: function() { return new Date(); },
     mkCard: function(opts) { return new UI.Card(opts); },
     getGPS: function(ok, err, opts) {
       return navigator.geolocation.getCurrentPosition(ok, err, opts);
     },
-    getDirections: mkGetDirections(ajax, eta_home)
+    getDirections: mkGetDirections(ajax,
+                                   function () { return Settings.option("key") || "?"; })
   });
 })();
